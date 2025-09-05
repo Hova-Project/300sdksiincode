@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PocketOption Signal Generator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a2a4c 0%, #0d1525 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        .logo {
+            margin-bottom: 30px;
+            font-size: 28px;
+            font-weight: bold;
+            background: linear-gradient(90deg, #3498db 0%, #2ecc71 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 10px rgba(46, 204, 113, 0.2);
+        }
+
+        .pairs-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 20px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease;
+        }
+
+        .pairs-selector.active {
+            max-height: 200px;
+        }
+
+        .pair-btn {
+            background: rgba(52, 152, 219, 0.2);
+            border: 1px solid #3498db;
+            border-radius: 20px;
+            color: #ecf0f1;
+            padding: 6px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .pair-btn:hover {
+            background: rgba(52, 152, 219, 0.4);
+        }
+
+        .pair-btn.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .select-pair-btn {
+            background: linear-gradient(90deg, #3498db 0%, #2ecc71 100%);
+            border: none;
+            border-radius: 20px;
+            color: white;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-bottom: 15px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .signal-window {
+            background-color: #1e2839;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            min-height: 280px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #2c3e50;
+        }
+
+        #graph-container {
+            width: 100%;
+            height: 230px;
+            position: relative;
+        }
+
+        #graph-canvas {
+            width: 100%;
+            height: 100%;
+            background-color: #1a2439;
+            border-radius: 8px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #ecf0f1;
+        }
+
+        .chart-pair {
+            font-weight: bold;
+            background: linear-gradient(90deg, #3498db 0%, #2ecc71 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background-color: rgba(52, 152, 219, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+
+        .chart-time {
+            color: #95a5a6;
+        }
+
+        .chart-price {
+            position: absolute;
+            right: 5px;
+            top: 30px;
+            font-size: 12px;
+            color: #95a5a6;
+        }
+
+        .chart-controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            color: #95a5a6;
+            font-size: 12px;
+        }
+
+        .time-frame {
+            display: flex;
+            gap: 5px;
+        }
+
+        .time-frame span {
+            padding: 2px 5px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .time-frame span.active {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .result {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            gap: 15px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(26, 36, 57, 0.95);
+            border-radius: 15px;
+            z-index: 10;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        .result.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .up {
+            color: #2ecc71;
+        }
+
+        .down {
+            color: #e74c3c;
+        }
+
+        .signal-btn {
+            background: linear-gradient(90deg, #3498db 0%, #2ecc71 100%);
+            border: none;
+            border-radius: 30px;
+            color: white;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(46, 204, 113, 0.4);
+            margin: 0 auto;
+            display: block;
+        }
+
+        .signal-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(46, 204, 113, 0.6);
+        }
+
+        .signal-btn:active {
+            transform: translateY(1px);
+        }
+
+        .loading-container {
+            display: none;
+            margin-top: 30px;
+            width: 100%;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .loading-step {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            text-align: left;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.5s, transform 0.5s;
+        }
+
+        .step-text {
+            font-size: 16px;
+            color: #ecf0f1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background-color: #2c3e50;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, #3498db 0%, #2ecc71 100%);
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        .active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .arrow {
+            font-size: 32px;
+            margin-bottom: 5px;
+        }
+
+        .chance {
+            font-size: 20px;
+            margin-top: 5px;
+            opacity: 0.9;
+        }
+
+        .data-loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(26, 36, 57, 0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 15px;
+            z-index: 5;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(52, 152, 219, 0.3);
+            border-radius: 50%;
+            border-top-color: #3498db;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 16px;
+            color: #ecf0f1;
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .floating {
+            animation: floating 3s ease-in-out infinite;
+        }
+
+        @keyframes floating {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .fade-in {
+            animation: fadeIn 1s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .signal-pulse {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(46, 204, 113, 0.5);
+            animation: signalPulse 1.5s ease-out forwards;
+            opacity: 0;
+        }
+
+        @keyframes signalPulse {
+            0% {
+                width: 20px;
+                height: 20px;
+                opacity: 0.7;
+            }
+            100% {
+                width: 300px;
+                height: 300px;
+                opacity: 0;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .signal-window {
+                min-height: 250px;
+                padding: 12px;
+            }
+            
+            .signal-btn {
+                padding: 12px 30px;
+                font-size: 16px;
+            }
+            
+            .result {
+                font-size: 20px;
+            }
+            
+            #graph-container {
+                height: 200px;
+            }
+            
+            .pairs-selector {
+                gap: 6px;
+            }
+            
+            .pair-btn {
+                padding: 5px 10px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">POCKETOPTION SIGNAL</div>
+        
+        <button class="select-pair-btn" id="select-pair-btn">
+            <i class="fas fa-exchange-alt"></i> Выбрать валютную пару
+        </button>
+        
+        <div class="pairs-selector" id="pairs-selector">
+            <!-- Major -->
+            <button class="pair-btn active" data-pair="EUR/USD">EUR/USD</button>
+            <button class="pair-btn" data-pair="GBP/USD">GBP/USD</button>
+            <button class="pair-btn" data-pair="USD/JPY">USD/JPY</button>
+            <button class="pair-btn" data-pair="USD/CHF">USD/CHF</button>
+            <button class="pair-btn" data-pair="AUD/USD">AUD/USD</button>
+            <button class="pair-btn" data-pair="USD/CAD">USD/CAD</button>
+            <button class="pair-btn" data-pair="NZD/USD">NZD/USD</button>
+            
+            <!-- Minor -->
+            <button class="pair-btn" data-pair="EUR/GBP">EUR/GBP</button>
+            <button class="pair-btn" data-pair="EUR/JPY">EUR/JPY</button>
+            <button class="pair-btn" data-pair="GBP/JPY">GBP/JPY</button>
+            <button class="pair-btn" data-pair="CHF/JPY">CHF/JPY</button>
+            <button class="pair-btn" data-pair="EUR/AUD">EUR/AUD</button>
+            <button class="pair-btn" data-pair="EUR/CAD">EUR/CAD</button>
+            
+            <!-- Exotic -->
+            <button class="pair-btn" data-pair="USD/SGD">USD/SGD</button>
+            <button class="pair-btn" data-pair="USD/HKD">USD/HKD</button>
+            <button class="pair-btn" data-pair="USD/TRY">USD/TRY</button>
+            <button class="pair-btn" data-pair="USD/ZAR">USD/ZAR</button>
+            
+            <!-- Cryptos -->
+            <button class="pair-btn" data-pair="BTC/USD">BTC/USD</button>
+            <button class="pair-btn" data-pair="ETH/USD">ETH/USD</button>
+            <button class="pair-btn" data-pair="LTC/USD">LTC/USD</button>
+            <button class="pair-btn" data-pair="XRP/USD">XRP/USD</button>
+        </div>
+        
+        <div class="signal-window">
+            <div class="data-loading" id="data-loading">
+                <div class="spinner"></div>
+                <div class="loading-text">Получение рыночных данных...</div>
+            </div>
+            
+            <div id="graph-container">
+                <div class="chart-header">
+                    <div class="chart-pair" id="current-pair">
+                        <span>EUR/USD</span>
+                        <i class="fas fa-caret-down"></i>
+                    </div>
+                    <div class="chart-time">16:45:23</div>
+                </div>
+                <canvas id="graph-canvas"></canvas>
+                <div class="chart-price">1.0876</div>
+                
+                <div class="chart-controls">
+                    <div class="time-frame">
+                        <span class="active">M1</span>
+                        <span>M5</span>
+                        <span>M15</span>
+                        <span>H1</span>
+                    </div>
+                    <div class="chart-indicators">
+                        <span>RSI: 54.2</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="result" id="result">
+                <div class="signal-pulse" id="signal-pulse"></div>
+                <div class="arrow" id="arrow"><i class="fas fa-arrow-up"></i></div>
+                <div id="direction">ВВЕРХ</div>
+                <div class="chance" id="chance">95%</div>
+            </div>
+        </div>
+        
+        <button class="signal-btn pulse" id="signal-btn">СИГНАЛ</button>
+        
+        <div class="loading-container" id="loading-container">
+            <div class="loading-step" id="step1">
+                <div class="step-text"><i class="fas fa-cog fa-spin"></i> 1-Генерация нового сигнала...</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress1"></div>
+                </div>
+            </div>
+            <div class="loading-step" id="step2">
+                <div class="step-text"><i class="fas fa-key"></i> 2-Оптимизируем ключи...</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress2"></div>
+                </div>
+            </div>
+            <div class="loading-step" id="step3">
+                <div class="step-text"><i class="fas fa-chart-line"></i> 3-Подготовка сигнала</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const signalBtn = document.getElementById('signal-btn');
+            const graphCanvas = document.getElementById('graph-canvas');
+            const result = document.getElementById('result');
+            const direction = document.getElementById('direction');
+            const arrow = document.getElementById('arrow');
+            const chance = document.getElementById('chance');
+            const loadingContainer = document.getElementById('loading-container');
+            const step1 = document.getElementById('step1');
+            const step2 = document.getElementById('step2');
+            const step3 = document.getElementById('step3');
+            const progress1 = document.getElementById('progress1');
+            const progress2 = document.getElementById('progress2');
+            const progress3 = document.getElementById('progress3');
+            const dataLoading = document.getElementById('data-loading');
+            const chartTime = document.querySelector('.chart-time');
+            const currentPair = document.getElementById('current-pair');
+            const selectPairBtn = document.getElementById('select-pair-btn');
+            const pairsSelector = document.getElementById('pairs-selector');
+            const pairButtons = document.querySelectorAll('.pair-btn');
+            const signalPulse = document.getElementById('signal-pulse');
+            
+            let selectedPair = "EUR/USD";
+            
+            // Инициализация выбора валютной пары
+            selectPairBtn.addEventListener('click', function() {
+                pairsSelector.classList.toggle('active');
+            });
+            
+            currentPair.addEventListener('click', function() {
+                pairsSelector.classList.toggle('active');
+            });
+            
+            // Обработка выбора валютной пары
+            pairButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const pair = this.getAttribute('data-pair');
+                    selectedPair = pair;
+                    
+                    // Обновляем отображаемую пару
+                    currentPair.querySelector('span').textContent = pair;
+                    
+                    // Обновляем активную кнопку
+                    pairButtons.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Скрываем селектор
+                    pairsSelector.classList.remove('active');
+                    
+                    // Обновляем цену (для демонстрации)
+                    updatePriceForPair(pair);
+                });
+            });
+            
+            // Функция для обновления цены в зависимости от выбранной пары
+            function updatePriceForPair(pair) {
+                const priceElement = document.querySelector('.chart-price');
+                const prices = {
+                    "EUR/USD": (1.08 + Math.random() * 0.01).toFixed(4),
+                    "GBP/USD": (1.26 + Math.random() * 0.01).toFixed(4),
+                    "USD/JPY": (145.5 + Math.random() * 0.5).toFixed(2),
+                    "USD/CHF": (0.88 + Math.random() * 0.01).toFixed(4),
+                    "AUD/USD": (0.65 + Math.random() * 0.01).toFixed(4),
+                    "USD/CAD": (1.35 + Math.random() * 0.01).toFixed(4),
+                    "NZD/USD": (0.59 + Math.random() * 0.01).toFixed(4),
+                    "EUR/GBP": (0.86 + Math.random() * 0.01).toFixed(4),
+                    "EUR/JPY": (157.0 + Math.random() * 0.5).toFixed(2),
+                    "GBP/JPY": (183.0 + Math.random() * 0.5).toFixed(2),
+                    "CHF/JPY": (165.0 + Math.random() * 0.5).toFixed(2),
+                    "EUR/AUD": (1.66 + Math.random() * 0.01).toFixed(4),
+                    "EUR/CAD": (1.46 + Math.random() * 0.01).toFixed(4),
+                    "USD/SGD": (1.35 + Math.random() * 0.01).toFixed(4),
+                    "USD/HKD": (7.82 + Math.random() * 0.01).toFixed(4),
+                    "USD/TRY": (27.0 + Math.random() * 0.1).toFixed(2),
+                    "USD/ZAR": (18.9 + Math.random() * 0.1).toFixed(2),
+                    "BTC/USD": (40000 + Math.random() * 1000).toFixed(0),
+                    "ETH/USD": (2200 + Math.random() * 50).toFixed(0),
+                    "LTC/USD": (70 + Math.random() * 2).toFixed(2),
+                    "XRP/USD": (0.6 + Math.random() * 0.01).toFixed(3)
+                };
+                
+                priceElement.textContent = prices[pair] || "1.0000";
+            }
+            
+            const ctx = graphCanvas.getContext('2d');
+            graphCanvas.width = graphCanvas.offsetWidth;
+            graphCanvas.height = graphCanvas.offsetHeight - 40;
+            
+            // Функция для обновления времени
+            function updateTime() {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                chartTime.textContent = `${hours}:${minutes}:${seconds}`;
+            }
+            
+            // Обновляем время каждую секунду
+            setInterval(updateTime, 1000);
+            updateTime();
+            
+            // Функция для интерполяции между точками (создание плавной кривой)
+            function interpolatePoints(points, stepsBetweenPoints = 20) {
+                const interpolated = [];
+                
+                for (let i = 0; i < points.length - 1; i++) {
+                    const p1 = points[i];
+                    const p2 = points[i + 1];
+                    
+                    // Добавляем исходную точку
+                    interpolated.push(p1);
+                    
+                    // Добавляем промежуточные точки
+                    for (let j = 1; j < stepsBetweenPoints; j++) {
+                        const progress = j / stepsBetweenPoints;
+                        // Используем квадратичную интерполяцию для более плавных кривых
+                        const t = progress;
+                        const x = p1.x + (p2.x - p1.x) * t;
+                        const y = p1.y + (p2.y - p1.y) * t;
+                        
+                        interpolated.push({ x, y });
+                    }
+                }
+                
+                // Добавляем последнюю точку
+                interpolated.push(points[points.length - 1]);
+                
+                return interpolated;
+            }
+            
+            // Функция для рисования графика
+            function drawGraph(data, color, progress = 1.0) {
+                ctx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+                
+                const width = graphCanvas.width;
+                const height = graphCanvas.height;
+                const padding = 20;
+                const chartWidth = width - padding * 2;
+                const chartHeight = height - padding * 2;
+                
+                // Сетка
+                ctx.strokeStyle = '#2c3e50';
+                ctx.lineWidth = 1;
+                
+                // Горизонтальные линии
+                for (let i = 0; i <= 4; i++) {
+                    const y = padding + (chartHeight / 4) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(padding, y);
+                    ctx.lineTo(width - padding, y);
+                    ctx.stroke();
+                }
+                
+                // Вертикальные линии (время)
+                for (let i = 0; i <= 5; i++) {
+                    const x = padding + (chartWidth / 5) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(x, padding);
+                    ctx.lineTo(x, height - padding);
+                    ctx.stroke();
+                }
+                
+                // Создаем точки графика
+                const points = data.map((value, index) => {
+                    const x = padding + (chartWidth / (data.length - 1)) * index;
+                    const y = padding + chartHeight - (value / 100) * chartHeight;
+                    return { x, y };
+                });
+                
+                // Интерполируем точки для плавности
+                const smoothPoints = interpolatePoints(points, 15);
+                
+                // Количество точек для отображения (в зависимости от прогресса)
+                const pointsToShow = Math.floor(smoothPoints.length * progress);
+                const visiblePoints = smoothPoints.slice(0, pointsToShow);
+                
+                // Рисуем график, если есть точки
+                if (visiblePoints.length > 1) {
+                    ctx.beginPath();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = color;
+                    
+                    ctx.moveTo(visiblePoints[0].x, visiblePoints[0].y);
+                    
+                    for (let i = 1; i < visiblePoints.length; i++) {
+                        ctx.lineTo(visiblePoints[i].x, visiblePoints[i].y);
+                    }
+                    
+                    ctx.stroke();
+                    
+                    // Точки на графике (только для оригинальных точек)
+                    ctx.fillStyle = color;
+                    points.forEach(point => {
+                        if (visiblePoints.length > point.index * 15) {
+                            ctx.beginPath();
+                            ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    });
+                }
+                
+                // Подписи цен
+                ctx.fillStyle = '#95a5a6';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'right';
+                
+                const maxPrice = Math.max(...data).toFixed(1);
+                const minPrice = Math.min(...data).toFixed(1);
+                
+                ctx.fillText(maxPrice, padding - 5, padding + 10);
+                ctx.fillText(minPrice, padding - 5, height - padding + 5);
+            }
+            
+            // Функция для анимации графика (слева направо)
+            function animateGraph(finalData, color, duration) {
+                return new Promise(resolve => {
+                    const steps = 150; // Увеличили количество шагов для большей плавности
+                    const stepDuration = duration / steps;
+                    let currentStep = 0;
+                    
+                    const animate = () => {
+                        if (currentStep > steps) {
+                            resolve();
+                            return;
+                        }
+                        
+                        // Используем easing функцию для более плавной анимации
+                        const progress = easeInOutCubic(currentStep / steps);
+                        drawGraph(finalData, color, progress);
+                        currentStep++;
+                        
+                        setTimeout(animate, stepDuration);
+                    };
+                    
+                    animate();
+                });
+            }
+            
+            // Easing функция для плавной анимации
+            function easeInOutCubic(t) {
+                return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+            }
+            
+            // Генерация случайных данных для графика
+            function generateGraphData() {
+                const data = [50]; // Начальное значение
+                for (let i = 1; i < 20; i++) {
+                    // Добавляем случайное изменение от -15 до +15
+                    const change = (Math.random() * 30 - 15) * (i / 5); // Меньше изменений в начале
+                    let newValue = data[i - 1] + change;
+                    
+                    // Ограничиваем значения между 10 и 90
+                    newValue = Math.max(10, Math.min(90, newValue));
+                    
+                    data.push(newValue);
+                }
+                return data;
+            }
+            
+            signalBtn.addEventListener('click', async function() {
+                // Скрываем кнопку
+                signalBtn.style.display = 'none';
+                
+                // Показываем анимацию загрузки данных
+                dataLoading.style.display = 'flex';
+                
+                // Имитация получения данных с задержкой
+                setTimeout(async function() {
+                    // Скрываем анимацию загрузки
+                    dataLoading.style.display = 'none';
+                    
+                    // Генерируем данные для графика
+                    const graphData = generateGraphData();
+                    
+                    // Запускаем анимацию графика (изначально синим цветом)
+                    await animateGraph(graphData, '#3498db', 4000);
+                    
+                    // Генерируем случайный результат (90-99% успеха)
+                    const isUp = Math.random() > 0.5;
+                    const successChance = Math.floor(Math.random() * 10) + 90;
+                    
+                    // Перерисовываем график соответствующим цветом
+                    const resultColor = isUp ? '#2ecc71' : '#e74c3c';
+                    
+                    // Показываем график с новым цветом на 2 секунды перед показом результата
+                    drawGraph(graphData, resultColor);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Устанавливаем результат
+                    if (isUp) {
+                        direction.textContent = 'ВВЕРХ';
+                        direction.className = 'up';
+                        arrow.innerHTML = '<i class="fas fa-arrow-up"></i>';
+                        arrow.className = 'arrow up';
+                        chance.textContent = `${successChance}%`;
+                        signalPulse.style.background = 'rgba(46, 204, 113, 0.5)';
+                    } else {
+                        direction.textContent = 'ВНИЗ';
+                        direction.className = 'down';
+                        arrow.innerHTML = '<i class="fas fa-arrow-down"></i>';
+                        arrow.className = 'arrow down';
+                        chance.textContent = `${successChance}%`;
+                        signalPulse.style.background = 'rgba(231, 76, 60, 0.5)';
+                    }
+                    
+                    // Запускаем анимацию пульсации сигнала
+                    signalPulse.style.animation = 'signalPulse 1.5s ease-out forwards';
+                    
+                    // Показываем результат с анимацией
+                    result.style.display = 'flex';
+                    setTimeout(() => {
+                        result.classList.add('show');
+                    }, 50);
+                    
+                    // Запускаем анимацию загрузки
+                    loadingContainer.style.display = 'flex';
+                    
+                    // Анимация шагов загрузки
+                    setTimeout(() => {
+                        step1.classList.add('active');
+                        progress1.style.width = '100%';
+                    }, 1000);
+                    
+                    setTimeout(() => {
+                        step2.classList.add('active');
+                        progress2.style.width = '100%';
+                    }, 4000);
+                    
+                    setTimeout(() => {
+                        step3.classList.add('active');
+                        progress3.style.width = '100%';
+                    }, 7000);
+                    
+                    // Через 12 секунд снова показываем кнопку (увеличили время)
+                    setTimeout(function() {
+                        loadingContainer.style.display = 'none';
+                        result.classList.remove('show');
+                        
+                        setTimeout(() => {
+                            result.style.display = 'none';
+                            signalBtn.style.display = 'block';
+                            
+                            // Сбрасываем анимацию для следующего использования
+                            step1.classList.remove('active');
+                            step2.classList.remove('active');
+                            step3.classList.remove('active');
+                            progress1.style.width = '0';
+                            progress2.style.width = '0';
+                            progress3.style.width = '0';
+                            
+                            // Сбрасываем анимацию пульса
+                            signalPulse.style.animation = 'none';
+                            
+                            // Возвращаем график к исходному синему цвету
+                            drawGraph(graphData, '#3498db');
+                        }, 500);
+                    }, 12000); // Увеличили время до 12 секунд
+                    
+                }, 2000); // Задержка для имитации получения данных
+            });
+            
+            // Инициализация начального графика
+            const initialData = generateGraphData();
+            drawGraph(initialData, '#3498db');
+        });
+    </script>
+</body>
+</html>
