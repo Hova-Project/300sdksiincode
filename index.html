@@ -191,6 +191,14 @@
             background-color: rgba(26, 36, 57, 0.95);
             border-radius: 15px;
             z-index: 10;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        .result.show {
+            opacity: 1;
+            transform: scale(1);
         }
 
         .up {
@@ -317,6 +325,61 @@
             color: #ecf0f1;
         }
 
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .floating {
+            animation: floating 3s ease-in-out infinite;
+        }
+
+        @keyframes floating {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .fade-in {
+            animation: fadeIn 1s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .signal-pulse {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: rgba(46, 204, 113, 0.5);
+            animation: signalPulse 1.5s ease-out forwards;
+            opacity: 0;
+        }
+
+        @keyframes signalPulse {
+            0% {
+                width: 20px;
+                height: 20px;
+                opacity: 0.7;
+            }
+            100% {
+                width: 300px;
+                height: 300px;
+                opacity: 0;
+            }
+        }
+
         @media (max-width: 600px) {
             .signal-window {
                 min-height: 250px;
@@ -349,7 +412,7 @@
 </head>
 <body>
     <div class="container">
-        <div class="logo">POCKET SIGNAL</div>
+        <div class="logo">POCKETOPTION SIGNAL</div>
         
         <button class="select-pair-btn" id="select-pair-btn">
             <i class="fas fa-exchange-alt"></i> Выбрать валютную пару
@@ -417,13 +480,14 @@
             </div>
             
             <div class="result" id="result">
+                <div class="signal-pulse" id="signal-pulse"></div>
                 <div class="arrow" id="arrow"><i class="fas fa-arrow-up"></i></div>
                 <div id="direction">ВВЕРХ</div>
                 <div class="chance" id="chance">95%</div>
             </div>
         </div>
         
-        <button class="signal-btn" id="signal-btn">СИГНАЛ</button>
+        <button class="signal-btn pulse" id="signal-btn">СИГНАЛ</button>
         
         <div class="loading-container" id="loading-container">
             <div class="loading-step" id="step1">
@@ -468,6 +532,7 @@
             const selectPairBtn = document.getElementById('select-pair-btn');
             const pairsSelector = document.getElementById('pairs-selector');
             const pairButtons = document.querySelectorAll('.pair-btn');
+            const signalPulse = document.getElementById('signal-pulse');
             
             let selectedPair = "EUR/USD";
             
@@ -548,8 +613,37 @@
             setInterval(updateTime, 1000);
             updateTime();
             
+            // Функция для интерполяции между точками (создание плавной кривой)
+            function interpolatePoints(points, stepsBetweenPoints = 20) {
+                const interpolated = [];
+                
+                for (let i = 0; i < points.length - 1; i++) {
+                    const p1 = points[i];
+                    const p2 = points[i + 1];
+                    
+                    // Добавляем исходную точку
+                    interpolated.push(p1);
+                    
+                    // Добавляем промежуточные точки
+                    for (let j = 1; j < stepsBetweenPoints; j++) {
+                        const progress = j / stepsBetweenPoints;
+                        // Используем квадратичную интерполяцию для более плавных кривых
+                        const t = progress;
+                        const x = p1.x + (p2.x - p1.x) * t;
+                        const y = p1.y + (p2.y - p1.y) * t;
+                        
+                        interpolated.push({ x, y });
+                    }
+                }
+                
+                // Добавляем последнюю точку
+                interpolated.push(points[points.length - 1]);
+                
+                return interpolated;
+            }
+            
             // Функция для рисования графика
-            function drawGraph(data, color) {
+            function drawGraph(data, color, progress = 1.0) {
                 ctx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
                 
                 const width = graphCanvas.width;
@@ -580,31 +674,44 @@
                     ctx.stroke();
                 }
                 
-                // График
-                ctx.beginPath();
-                ctx.lineWidth = 2;
-                ctx.strokeStyle = color;
-                
+                // Создаем точки графика
                 const points = data.map((value, index) => {
                     const x = padding + (chartWidth / (data.length - 1)) * index;
                     const y = padding + chartHeight - (value / 100) * chartHeight;
                     return { x, y };
                 });
                 
-                ctx.moveTo(points[0].x, points[0].y);
-                for (let i = 1; i < points.length; i++) {
-                    ctx.lineTo(points[i].x, points[i].y);
-                }
+                // Интерполируем точки для плавности
+                const smoothPoints = interpolatePoints(points, 15);
                 
-                ctx.stroke();
+                // Количество точек для отображения (в зависимости от прогресса)
+                const pointsToShow = Math.floor(smoothPoints.length * progress);
+                const visiblePoints = smoothPoints.slice(0, pointsToShow);
                 
-                // Точки на графике
-                ctx.fillStyle = color;
-                points.forEach(point => {
+                // Рисуем график, если есть точки
+                if (visiblePoints.length > 1) {
                     ctx.beginPath();
-                    ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
-                    ctx.fill();
-                });
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = color;
+                    
+                    ctx.moveTo(visiblePoints[0].x, visiblePoints[0].y);
+                    
+                    for (let i = 1; i < visiblePoints.length; i++) {
+                        ctx.lineTo(visiblePoints[i].x, visiblePoints[i].y);
+                    }
+                    
+                    ctx.stroke();
+                    
+                    // Точки на графике (только для оригинальных точек)
+                    ctx.fillStyle = color;
+                    points.forEach(point => {
+                        if (visiblePoints.length > point.index * 15) {
+                            ctx.beginPath();
+                            ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    });
+                }
                 
                 // Подписи цен
                 ctx.fillStyle = '#95a5a6';
@@ -618,25 +725,34 @@
                 ctx.fillText(minPrice, padding - 5, height - padding + 5);
             }
             
-            // Функция для анимации графика
+            // Функция для анимации графика (слева направо)
             function animateGraph(finalData, color, duration) {
-                const steps = 60; // Количество кадров анимации
-                const stepDuration = duration / steps;
-                let currentStep = 0;
-                
-                const animate = () => {
-                    if (currentStep > steps) return;
+                return new Promise(resolve => {
+                    const steps = 150; // Увеличили количество шагов для большей плавности
+                    const stepDuration = duration / steps;
+                    let currentStep = 0;
                     
-                    const progress = currentStep / steps;
-                    const currentData = finalData.map(value => value * progress);
+                    const animate = () => {
+                        if (currentStep > steps) {
+                            resolve();
+                            return;
+                        }
+                        
+                        // Используем easing функцию для более плавной анимации
+                        const progress = easeInOutCubic(currentStep / steps);
+                        drawGraph(finalData, color, progress);
+                        currentStep++;
+                        
+                        setTimeout(animate, stepDuration);
+                    };
                     
-                    drawGraph(currentData, color);
-                    currentStep++;
-                    
-                    setTimeout(animate, stepDuration);
-                };
-                
-                animate();
+                    animate();
+                });
+            }
+            
+            // Easing функция для плавной анимации
+            function easeInOutCubic(t) {
+                return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
             }
             
             // Генерация случайных данных для графика
@@ -644,7 +760,7 @@
                 const data = [50]; // Начальное значение
                 for (let i = 1; i < 20; i++) {
                     // Добавляем случайное изменение от -15 до +15
-                    const change = Math.random() * 30 - 15;
+                    const change = (Math.random() * 30 - 15) * (i / 5); // Меньше изменений в начале
                     let newValue = data[i - 1] + change;
                     
                     // Ограничиваем значения между 10 и 90
@@ -655,7 +771,7 @@
                 return data;
             }
             
-            signalBtn.addEventListener('click', function() {
+            signalBtn.addEventListener('click', async function() {
                 // Скрываем кнопку
                 signalBtn.style.display = 'none';
                 
@@ -663,7 +779,7 @@
                 dataLoading.style.display = 'flex';
                 
                 // Имитация получения данных с задержкой
-                setTimeout(function() {
+                setTimeout(async function() {
                     // Скрываем анимацию загрузки
                     dataLoading.style.display = 'none';
                     
@@ -671,56 +787,70 @@
                     const graphData = generateGraphData();
                     
                     // Запускаем анимацию графика (изначально синим цветом)
-                    animateGraph(graphData, '#3498db', 3000);
+                    await animateGraph(graphData, '#3498db', 4000);
                     
-                    // Через 3 секунды показываем результат и меняем цвет графика
+                    // Генерируем случайный результат (90-99% успеха)
+                    const isUp = Math.random() > 0.5;
+                    const successChance = Math.floor(Math.random() * 10) + 90;
+                    
+                    // Перерисовываем график соответствующим цветом
+                    const resultColor = isUp ? '#2ecc71' : '#e74c3c';
+                    
+                    // Показываем график с новым цветом на 2 секунды перед показом результата
+                    drawGraph(graphData, resultColor);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Устанавливаем результат
+                    if (isUp) {
+                        direction.textContent = 'ВВЕРХ';
+                        direction.className = 'up';
+                        arrow.innerHTML = '<i class="fas fa-arrow-up"></i>';
+                        arrow.className = 'arrow up';
+                        chance.textContent = `${successChance}%`;
+                        signalPulse.style.background = 'rgba(46, 204, 113, 0.5)';
+                    } else {
+                        direction.textContent = 'ВНИЗ';
+                        direction.className = 'down';
+                        arrow.innerHTML = '<i class="fas fa-arrow-down"></i>';
+                        arrow.className = 'arrow down';
+                        chance.textContent = `${successChance}%`;
+                        signalPulse.style.background = 'rgba(231, 76, 60, 0.5)';
+                    }
+                    
+                    // Запускаем анимацию пульсации сигнала
+                    signalPulse.style.animation = 'signalPulse 1.5s ease-out forwards';
+                    
+                    // Показываем результат с анимацией
+                    result.style.display = 'flex';
+                    setTimeout(() => {
+                        result.classList.add('show');
+                    }, 50);
+                    
+                    // Запускаем анимацию загрузки
+                    loadingContainer.style.display = 'flex';
+                    
+                    // Анимация шагов загрузки
+                    setTimeout(() => {
+                        step1.classList.add('active');
+                        progress1.style.width = '100%';
+                    }, 1000);
+                    
+                    setTimeout(() => {
+                        step2.classList.add('active');
+                        progress2.style.width = '100%';
+                    }, 4000);
+                    
+                    setTimeout(() => {
+                        step3.classList.add('active');
+                        progress3.style.width = '100%';
+                    }, 7000);
+                    
+                    // Через 12 секунд снова показываем кнопку (увеличили время)
                     setTimeout(function() {
-                        // Генерируем случайный результат (90-99% успеха)
-                        const isUp = Math.random() > 0.5;
-                        const successChance = Math.floor(Math.random() * 10) + 90;
-                        
-                        // Перерисовываем график соответствующим цветом
-                        if (isUp) {
-                            drawGraph(graphData, '#2ecc71');
-                            direction.textContent = 'ВВЕРХ';
-                            direction.className = 'up';
-                            arrow.innerHTML = '<i class="fas fa-arrow-up"></i>';
-                            arrow.className = 'arrow up';
-                            chance.textContent = `${successChance}%`;
-                        } else {
-                            drawGraph(graphData, '#e74c3c');
-                            direction.textContent = 'ВНИЗ';
-                            direction.className = 'down';
-                            arrow.innerHTML = '<i class="fas fa-arrow-down"></i>';
-                            arrow.className = 'arrow down';
-                            chance.textContent = `${successChance}%`;
-                        }
-                        
-                        // Показываем результат
-                        result.style.display = 'flex';
-                        
-                        // Запускаем анимацию загрузки
-                        loadingContainer.style.display = 'flex';
-                        
-                        // Анимация шагов загрузки
-                        setTimeout(() => {
-                            step1.classList.add('active');
-                            progress1.style.width = '100%';
-                        }, 1000);
+                        loadingContainer.style.display = 'none';
+                        result.classList.remove('show');
                         
                         setTimeout(() => {
-                            step2.classList.add('active');
-                            progress2.style.width = '100%';
-                        }, 4000);
-                        
-                        setTimeout(() => {
-                            step3.classList.add('active');
-                            progress3.style.width = '100%';
-                        }, 7000);
-                        
-                        // Через 10 секунд снова показываем кнопку
-                        setTimeout(function() {
-                            loadingContainer.style.display = 'none';
                             result.style.display = 'none';
                             signalBtn.style.display = 'block';
                             
@@ -732,11 +862,14 @@
                             progress2.style.width = '0';
                             progress3.style.width = '0';
                             
+                            // Сбрасываем анимацию пульса
+                            signalPulse.style.animation = 'none';
+                            
                             // Возвращаем график к исходному синему цвету
                             drawGraph(graphData, '#3498db');
-                        }, 10000);
-                        
-                    }, 3000);
+                        }, 500);
+                    }, 12000); // Увеличили время до 12 секунд
+                    
                 }, 2000); // Задержка для имитации получения данных
             });
             
